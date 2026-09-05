@@ -1,0 +1,30 @@
+# managed by Doctorine — edits will be overwritten
+name: Doctorine SDK CI
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out SDK
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - name: Install pinned staticcheck
+        shell: bash
+        run: go install "honnef.co/go/tools/cmd/staticcheck@$DOCTORINE_STATICCHECK_VERSION"
+        env:
+          DOCTORINE_STATICCHECK_VERSION: 2025.1.1
+      - name: Reject unresolved merge conflicts
+        shell: bash
+        run: if git grep -n -E '^(<<<<<<< |=======|>>>>>>> )' -- .; then echo 'unresolved merge conflict markers' >&2; exit 1; fi
+      - name: Verify generated SDK
+        shell: bash
+        run: test -z "$(gofmt -l .)" && go build ./... && go vet ./... && staticcheck ./... && go test -count=1 ./...

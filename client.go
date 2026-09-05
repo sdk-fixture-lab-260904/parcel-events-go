@@ -189,7 +189,7 @@ func NewClient(options ...Option) *Client {
 		option(&config)
 	}
 	kernelOptions := make([]kernel.ClientOption, 0, 8)
-	kernelOptions = append(kernelOptions, kernel.WithSDKIdentity("github.com/sdk-fixture-lab-260904/parcel-events-go", "0.1.0+sdk.d2a7563e3a07"))
+	kernelOptions = append(kernelOptions, kernel.WithSDKIdentity("github.com/sdk-fixture-lab-260904/parcel-events-go", "0.1.1+sdk.257c19d8d2fa"))
 	kernelOptions = append(kernelOptions, kernel.WithTimeout(config.timeout))
 	if config.retries != nil {
 		kernelOptions = append(kernelOptions, kernel.WithRetryPolicy(*config.retries))
