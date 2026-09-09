@@ -2,6 +2,7 @@
 ## Contents
 
 - [POST /v1/webhook-endpoints](#createwebhookendpoint)
+- [GET /v1/webhook-endpoints/{endpoint_id}](#retrievewebhookendpoint)
 - [GET /v1/webhook-endpoints](#listwebhookendpoints)
 - [DELETE /v1/webhook-endpoints/{endpoint_id}](#deletewebhookendpoint)
 - [PATCH /v1/webhook-endpoints/{endpoint_id}](#updatewebhookendpoint)
@@ -30,6 +31,35 @@ _Example (synthesized from schema):_
 ```
 
 Response `201`: `WebhookEndpoint`.
+
+_Example (synthesized from schema):_
+
+```json
+{
+  "created_at": "2026-06-09T00:00:00Z",
+  "enabled": true,
+  "events": [
+    "pickup.completed"
+  ],
+  "id": "whe_00000000000000000001",
+  "object": "webhook_endpoint",
+  "signing_secret_hint": "synthetic-key-ending-0000",
+  "url": "https://hooks.parcel-events.example/events"
+}
+```
+
+<a id="retrievewebhookendpoint"></a>
+### GET /v1/webhook-endpoints/{endpoint_id}
+
+Retrieve a webhook endpoint
+
+`GET /v1/webhook-endpoints/{endpoint_id}`
+
+| name | in | type | required |
+| --- | --- | --- | --- |
+| endpoint_id | path | string | yes |
+
+Response `200`: `WebhookEndpoint`.
 
 _Example (synthesized from schema):_
 

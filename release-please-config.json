@@ -1,1 +1,1 @@
-{"packages":{".":{"package-name":"github.com/sdk-fixture-lab-260904/parcel-events-go","release-type":"go"}},"pull-request-title-pattern":"release: ${version}"}
+{"packages":{".":{"include-component-in-tag":false,"package-name":"github.com/sdk-fixture-lab-260904/parcel-events-go","release-type":"go"}},"pull-request-title-pattern":"release: ${version}"}

@@ -85,6 +85,11 @@ Generated from the same resolved API model as the SDK.
 - SDK method: `webhook_endpoints.create`
 - Operation: `post /v1/webhook-endpoints`
 
+### GET /v1/webhook-endpoints/{endpoint_id}
+
+- SDK method: `webhook_endpoints.get`
+- Operation: `get /v1/webhook-endpoints/{}`
+
 ### GET /v1/webhook-endpoints
 
 - SDK method: `webhook_endpoints.list`
