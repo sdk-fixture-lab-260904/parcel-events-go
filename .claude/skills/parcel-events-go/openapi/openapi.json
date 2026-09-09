@@ -1,0 +1,1801 @@
+{
+  "components": {
+    "parameters": {
+      "Cursor": {
+        "in": "query",
+        "name": "cursor",
+        "schema": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "IdempotencyKey": {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "LabelId": {
+        "in": "path",
+        "name": "label_id",
+        "required": true,
+        "schema": {
+          "pattern": "^lbl_[a-z0-9]{20}$",
+          "type": "string"
+        }
+      },
+      "Limit": {
+        "in": "query",
+        "name": "limit",
+        "schema": {
+          "default": 25,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "PickupId": {
+        "in": "path",
+        "name": "pickup_id",
+        "required": true,
+        "schema": {
+          "pattern": "^pku_[a-z0-9]{20}$",
+          "type": "string"
+        }
+      },
+      "ShipmentId": {
+        "in": "path",
+        "name": "shipment_id",
+        "required": true,
+        "schema": {
+          "pattern": "^shp_[a-z0-9]{20}$",
+          "type": "string"
+        }
+      },
+      "WebhookEndpointId": {
+        "in": "path",
+        "name": "endpoint_id",
+        "required": true,
+        "schema": {
+          "pattern": "^whe_[a-z0-9]{20}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/problem+json": {
+            "example": {
+              "request_id": "req_00000000000000000001",
+              "status": 400,
+              "title": "Synthetic request is invalid",
+              "type": "https://parcel-events.example/problems/bad-request"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "description": "Request syntax or parameters are invalid"
+      },
+      "Conflict": {
+        "content": {
+          "application/problem+json": {
+            "example": {
+              "request_id": "req_00000000000000000005",
+              "status": 409,
+              "title": "Synthetic resource state conflicts",
+              "type": "https://parcel-events.example/problems/conflict"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "description": "Current resource state prevents the operation"
+      },
+      "NotFound": {
+        "content": {
+          "application/problem+json": {
+            "example": {
+              "request_id": "req_00000000000000000004",
+              "status": 404,
+              "title": "Synthetic resource was not found",
+              "type": "https://parcel-events.example/problems/not-found"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "description": "The requested synthetic resource does not exist"
+      },
+      "PaymentRequired": {
+        "content": {
+          "application/problem+json": {
+            "example": {
+              "request_id": "req_00000000000000000003",
+              "status": 402,
+              "title": "Synthetic balance is insufficient",
+              "type": "https://parcel-events.example/problems/payment-required"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "description": "The synthetic account cannot purchase this label"
+      },
+      "Unauthorized": {
+        "content": {
+          "application/problem+json": {
+            "example": {
+              "request_id": "req_00000000000000000002",
+              "status": 401,
+              "title": "Synthetic credential was rejected",
+              "type": "https://parcel-events.example/problems/unauthorized"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "description": "Authentication is missing or invalid"
+      },
+      "ValidationFailed": {
+        "content": {
+          "application/problem+json": {
+            "example": {
+              "errors": [
+                {
+                  "message": "must be a synthetic postal code",
+                  "path": "recipient.postal_code"
+                }
+              ],
+              "request_id": "req_00000000000000000006",
+              "status": 422,
+              "title": "Synthetic request validation failed",
+              "type": "https://parcel-events.example/problems/validation"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        },
+        "description": "One or more fields failed semantic validation"
+      }
+    },
+    "schemas": {
+      "Address": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "example": "Exampleton",
+            "type": "string"
+          },
+          "company": {
+            "example": "Northstar Supplies",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "country": {
+            "example": "ZZ",
+            "pattern": "^[A-Z]{2}$",
+            "type": "string"
+          },
+          "line1": {
+            "example": "14 Fictional Quay",
+            "type": "string"
+          },
+          "line2": {
+            "example": "Unit 7",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "example": "Rowan Example",
+            "minLength": 1,
+            "type": "string"
+          },
+          "phone": {
+            "example": "+00000000000",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postal_code": {
+            "example": "EX4 2PL",
+            "type": "string"
+          },
+          "region": {
+            "example": "Test Province",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "city",
+          "country",
+          "line1",
+          "name",
+          "postal_code"
+        ],
+        "type": "object"
+      },
+      "CreateLabelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/LabelFormat"
+          },
+          "page_size": {
+            "default": "four_by_six",
+            "enum": [
+              "a4",
+              "letter",
+              "four_by_six"
+            ],
+            "type": "string"
+          },
+          "shipment_id": {
+            "example": "shp_00000000000000000001",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "shipment_id"
+        ],
+        "type": "object"
+      },
+      "CreatePickupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "notes": {
+            "maxLength": 500,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shipment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "window": {
+            "$ref": "#/components/schemas/PickupWindow"
+          }
+        },
+        "required": [
+          "address",
+          "shipment_ids",
+          "window"
+        ],
+        "type": "object"
+      },
+      "CreateShipmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery_instructions": {
+            "example": "Leave with the synthetic reception desk",
+            "maxLength": 500,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 20,
+            "type": "object"
+          },
+          "parcels": {
+            "items": {
+              "$ref": "#/components/schemas/Parcel"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          },
+          "recipient": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "reference": {
+            "example": "synthetic-order-1042",
+            "maxLength": 80,
+            "type": "string"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "service": {
+            "enum": [
+              "economy",
+              "express",
+              "same_day"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "parcels",
+          "recipient",
+          "reference",
+          "sender",
+          "service"
+        ],
+        "type": "object"
+      },
+      "CreateWebhookEndpointRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 120,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEventType"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "url": {
+            "example": "https://hooks.parcel-events.example/events",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "events",
+          "url"
+        ],
+        "type": "object"
+      },
+      "Label": {
+        "additionalProperties": false,
+        "properties": {
+          "download_url": {
+            "example": "https://downloads.parcel-events.example/labels/synthetic-label.pdf",
+            "format": "uri",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/LabelFormat"
+          },
+          "id": {
+            "example": "lbl_00000000000000000001",
+            "type": "string"
+          },
+          "object": {
+            "const": "label"
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "shipment_id": {
+            "example": "shp_00000000000000000001",
+            "type": "string"
+          }
+        },
+        "required": [
+          "download_url",
+          "expires_at",
+          "format",
+          "id",
+          "object",
+          "price",
+          "shipment_id"
+        ],
+        "type": "object"
+      },
+      "LabelFormat": {
+        "enum": [
+          "pdf",
+          "png",
+          "zpl"
+        ],
+        "type": "string"
+      },
+      "Money": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "example": "12.50",
+            "pattern": "^[0-9]+(\\.[0-9]{2})$",
+            "type": "string"
+          },
+          "currency": {
+            "example": "XTS",
+            "pattern": "^[A-Z]{3}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "type": "object"
+      },
+      "Parcel": {
+        "additionalProperties": false,
+        "properties": {
+          "contents": {
+            "items": {
+              "$ref": "#/components/schemas/ParcelItem"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "height_cm": {
+            "example": 12,
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "length_cm": {
+            "example": 30.5,
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "weight_grams": {
+            "example": 1750,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "width_cm": {
+            "example": 20,
+            "exclusiveMinimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "height_cm",
+          "length_cm",
+          "weight_grams",
+          "width_cm"
+        ],
+        "type": "object"
+      },
+      "ParcelItem": {
+        "additionalProperties": false,
+        "properties": {
+          "customs_code": {
+            "example": "610910",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "example": "Synthetic cotton shirt",
+            "type": "string"
+          },
+          "quantity": {
+            "example": 2,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "unit_value": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unit_value"
+        ],
+        "type": "object"
+      },
+      "Pickup": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "pku_00000000000000000001",
+            "type": "string"
+          },
+          "object": {
+            "const": "pickup"
+          },
+          "shipment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "scheduled",
+              "completed",
+              "canceled",
+              "missed"
+            ],
+            "type": "string"
+          },
+          "window": {
+            "$ref": "#/components/schemas/PickupWindow"
+          }
+        },
+        "required": [
+          "address",
+          "created_at",
+          "id",
+          "object",
+          "shipment_ids",
+          "status",
+          "window"
+        ],
+        "type": "object"
+      },
+      "PickupPage": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Pickup"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "has_more",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
+      "PickupWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "ends_at": {
+            "example": "2026-09-06T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "starts_at": {
+            "example": "2026-09-06T09:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ends_at",
+          "starts_at"
+        ],
+        "type": "object"
+      },
+      "Problem": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "message": {
+                  "example": "must be a synthetic postal code",
+                  "type": "string"
+                },
+                "path": {
+                  "example": "recipient.postal_code",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "message",
+                "path"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "request_id": {
+            "example": "req_00000000000000000001",
+            "type": "string"
+          },
+          "status": {
+            "maximum": 599,
+            "minimum": 400,
+            "type": "integer"
+          },
+          "title": {
+            "example": "Synthetic request validation failed",
+            "type": "string"
+          },
+          "type": {
+            "example": "https://parcel-events.example/problems/validation",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "status",
+          "title",
+          "type"
+        ],
+        "type": "object"
+      },
+      "RateQuote": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "carrier": {
+            "example": "Example Parcel Network",
+            "type": "string"
+          },
+          "estimated_delivery_date": {
+            "example": "2026-09-07",
+            "format": "date",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "rate_00000000000000000001",
+            "type": "string"
+          },
+          "service": {
+            "example": "synthetic_express",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "carrier",
+          "estimated_delivery_date",
+          "expires_at",
+          "id",
+          "service"
+        ],
+        "type": "object"
+      },
+      "RateQuoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "parcels": {
+            "items": {
+              "$ref": "#/components/schemas/Parcel"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "recipient": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/Address"
+          }
+        },
+        "required": [
+          "parcels",
+          "recipient",
+          "sender"
+        ],
+        "type": "object"
+      },
+      "Shipment": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "example": "2026-09-04T08:15:30Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "delivery_instructions": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "example": "shp_00000000000000000001",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "object": {
+            "const": "shipment"
+          },
+          "parcels": {
+            "items": {
+              "$ref": "#/components/schemas/Parcel"
+            },
+            "type": "array"
+          },
+          "recipient": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "reference": {
+            "example": "synthetic-order-1042",
+            "type": "string"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "service": {
+            "enum": [
+              "economy",
+              "express",
+              "same_day"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ShipmentStatus"
+          },
+          "tracking_number": {
+            "example": "PE-000000000001",
+            "type": "string"
+          },
+          "updated_at": {
+            "example": "2026-09-04T08:16:12Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_at",
+          "id",
+          "object",
+          "parcels",
+          "recipient",
+          "reference",
+          "sender",
+          "service",
+          "status",
+          "tracking_number",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ShipmentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Shipment"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "has_more",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
+      "ShipmentStatus": {
+        "enum": [
+          "draft",
+          "label_purchased",
+          "in_transit",
+          "out_for_delivery",
+          "delivered",
+          "exception",
+          "canceled"
+        ],
+        "type": "string"
+      },
+      "ShipmentStatusEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "event": {
+                "$ref": "#/components/schemas/TrackingEvent"
+              },
+              "shipment": {
+                "$ref": "#/components/schemas/Shipment"
+              }
+            },
+            "required": [
+              "event",
+              "shipment"
+            ],
+            "type": "object"
+          },
+          "id": {
+            "example": "wh_evt_0000000000000001",
+            "type": "string"
+          },
+          "type": {
+            "const": "shipment.status_changed"
+          }
+        },
+        "required": [
+          "created_at",
+          "data",
+          "id",
+          "type"
+        ],
+        "type": "object"
+      },
+      "TrackingEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "example": "evt_00000000000000000001",
+            "type": "string"
+          },
+          "location": {
+            "additionalProperties": false,
+            "properties": {
+              "city": {
+                "example": "Samplehaven",
+                "type": "string"
+              },
+              "country": {
+                "example": "ZZ",
+                "type": "string"
+              }
+            },
+            "required": [
+              "city",
+              "country"
+            ],
+            "type": "object"
+          },
+          "message": {
+            "example": "Parcel scanned at synthetic sorting hub",
+            "type": "string"
+          },
+          "object": {
+            "const": "tracking_event"
+          },
+          "occurred_at": {
+            "example": "2026-09-05T05:40:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "shipment_id": {
+            "example": "shp_00000000000000000001",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ShipmentStatus"
+          }
+        },
+        "required": [
+          "id",
+          "location",
+          "object",
+          "occurred_at",
+          "shipment_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "TrackingEventPage": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/TrackingEvent"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "has_more",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
+      "TrackingTimeline": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TrackingEvent"
+            },
+            "type": "array"
+          },
+          "shipment": {
+            "$ref": "#/components/schemas/Shipment"
+          }
+        },
+        "required": [
+          "events",
+          "shipment"
+        ],
+        "type": "object"
+      },
+      "UpdateShipmentRequest": {
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "delivery_instructions": {
+            "maxLength": 500,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateWebhookEndpointRequest": {
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEventType"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WebhookEndpoint": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEventType"
+            },
+            "type": "array"
+          },
+          "id": {
+            "example": "whe_00000000000000000001",
+            "type": "string"
+          },
+          "object": {
+            "const": "webhook_endpoint"
+          },
+          "signing_secret_hint": {
+            "example": "synthetic-key-ending-0000",
+            "type": "string"
+          },
+          "url": {
+            "example": "https://hooks.parcel-events.example/events",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_at",
+          "enabled",
+          "events",
+          "id",
+          "object",
+          "url"
+        ],
+        "type": "object"
+      },
+      "WebhookEndpointPage": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookEndpoint"
+            },
+            "type": "array"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "has_more",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
+      "WebhookEventType": {
+        "enum": [
+          "shipment.created",
+          "shipment.status_changed",
+          "shipment.delivered",
+          "shipment.exception",
+          "pickup.completed"
+        ],
+        "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "ApiKey": {
+        "in": "header",
+        "name": "Parcel-API-Key",
+        "type": "apiKey"
+      },
+      "BearerToken": {
+        "bearerFormat": "opaque",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Parcel Events Sandbox Team",
+      "url": "https://parcel-events.example/support"
+    },
+    "description": "A fictional logistics API used only to exercise generated SDK publication. Every company, identifier, address, tracking event, and URL in this corpus is synthetic.",
+    "license": {
+      "identifier": "Apache-2.0",
+      "name": "Apache-2.0"
+    },
+    "summary": "Synthetic parcel orchestration and tracking API",
+    "title": "Parcel Events Sandbox API",
+    "version": "2026-09-04"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/labels": {
+      "post": {
+        "operationId": "createLabel",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLabelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            },
+            "description": "Label created"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          }
+        },
+        "summary": "Buy and render a shipping label",
+        "tags": [
+          "Labels"
+        ]
+      }
+    },
+    "/v1/labels/{label_id}": {
+      "get": {
+        "operationId": "retrieveLabel",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LabelId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            },
+            "description": "Label metadata"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "summary": "Retrieve label metadata and download URL",
+        "tags": [
+          "Labels"
+        ]
+      }
+    },
+    "/v1/pickups": {
+      "get": {
+        "operationId": "listPickups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "in": "query",
+            "name": "scheduled_on",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickupPage"
+                }
+              }
+            },
+            "description": "A page of pickups"
+          }
+        },
+        "summary": "List scheduled pickups",
+        "tags": [
+          "Pickups"
+        ]
+      },
+      "post": {
+        "operationId": "createPickup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePickupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pickup"
+                }
+              }
+            },
+            "description": "Pickup scheduled"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          }
+        },
+        "summary": "Schedule a carrier pickup",
+        "tags": [
+          "Pickups"
+        ]
+      }
+    },
+    "/v1/pickups/{pickup_id}": {
+      "delete": {
+        "operationId": "cancelPickup",
+        "responses": {
+          "204": {
+            "description": "Pickup canceled"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "summary": "Cancel a pickup",
+        "tags": [
+          "Pickups"
+        ]
+      },
+      "get": {
+        "operationId": "retrievePickup",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pickup"
+                }
+              }
+            },
+            "description": "Pickup details"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "summary": "Retrieve a pickup",
+        "tags": [
+          "Pickups"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PickupId"
+        }
+      ]
+    },
+    "/v1/rates/quote": {
+      "post": {
+        "operationId": "quoteRates",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateQuoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/RateQuote"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Ranked rate quotes"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          }
+        },
+        "summary": "Quote available shipping services",
+        "tags": [
+          "Rates"
+        ]
+      }
+    },
+    "/v1/shipments": {
+      "get": {
+        "operationId": "listShipments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "$ref": "#/components/schemas/ShipmentStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentPage"
+                }
+              }
+            },
+            "description": "A page of shipments"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "summary": "List shipments",
+        "tags": [
+          "Shipments"
+        ]
+      },
+      "post": {
+        "operationId": "createShipment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShipmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Shipment"
+                }
+              }
+            },
+            "description": "Shipment created",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "summary": "Create a shipment",
+        "tags": [
+          "Shipments"
+        ]
+      }
+    },
+    "/v1/shipments/{shipment_id}": {
+      "delete": {
+        "operationId": "cancelShipment",
+        "responses": {
+          "204": {
+            "description": "Shipment canceled"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "summary": "Cancel a shipment before handoff",
+        "tags": [
+          "Shipments"
+        ]
+      },
+      "get": {
+        "operationId": "retrieveShipment",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Shipment"
+                }
+              }
+            },
+            "description": "Shipment details"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "summary": "Retrieve a shipment",
+        "tags": [
+          "Shipments"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ShipmentId"
+        }
+      ],
+      "patch": {
+        "operationId": "updateShipment",
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShipmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Shipment"
+                }
+              }
+            },
+            "description": "Updated shipment"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          }
+        },
+        "summary": "Update delivery instructions",
+        "tags": [
+          "Shipments"
+        ]
+      }
+    },
+    "/v1/shipments/{shipment_id}/events": {
+      "get": {
+        "operationId": "listShipmentEvents",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingEventPage"
+                }
+              }
+            },
+            "description": "A page of immutable tracking events"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "summary": "List tracking events for a shipment",
+        "tags": [
+          "Tracking"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ShipmentId"
+        }
+      ]
+    },
+    "/v1/tracking/{tracking_number}": {
+      "get": {
+        "operationId": "retrieveTrackingTimeline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tracking_number",
+            "required": true,
+            "schema": {
+              "pattern": "^PE-[A-Z0-9]{12}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingTimeline"
+                }
+              }
+            },
+            "description": "Tracking timeline"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [],
+        "summary": "Retrieve a public tracking timeline",
+        "tags": [
+          "Tracking"
+        ]
+      }
+    },
+    "/v1/webhook-endpoints": {
+      "get": {
+        "operationId": "listWebhookEndpoints",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointPage"
+                }
+              }
+            },
+            "description": "A page of webhook endpoints"
+          }
+        },
+        "summary": "List webhook endpoints",
+        "tags": [
+          "Webhook endpoints"
+        ]
+      },
+      "post": {
+        "operationId": "createWebhookEndpoint",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookEndpointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                }
+              }
+            },
+            "description": "Webhook endpoint registered"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          }
+        },
+        "summary": "Register a webhook endpoint",
+        "tags": [
+          "Webhook endpoints"
+        ]
+      }
+    },
+    "/v1/webhook-endpoints/{endpoint_id}": {
+      "delete": {
+        "operationId": "deleteWebhookEndpoint",
+        "responses": {
+          "204": {
+            "description": "Endpoint deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "summary": "Delete a webhook endpoint",
+        "tags": [
+          "Webhook endpoints"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/WebhookEndpointId"
+        }
+      ],
+      "patch": {
+        "operationId": "updateWebhookEndpoint",
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookEndpointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                }
+              }
+            },
+            "description": "Updated endpoint"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "summary": "Update a webhook endpoint",
+        "tags": [
+          "Webhook endpoints"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKey": []
+    },
+    {
+      "BearerToken": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Synthetic production",
+      "url": "https://api.parcel-events.example"
+    },
+    {
+      "description": "Synthetic test environment",
+      "url": "https://sandbox.parcel-events.example"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Shipments"
+    },
+    {
+      "name": "Tracking"
+    },
+    {
+      "name": "Labels"
+    },
+    {
+      "name": "Pickups"
+    },
+    {
+      "name": "Rates"
+    },
+    {
+      "name": "Webhook endpoints"
+    }
+  ],
+  "webhooks": {
+    "shipmentStatusChanged": {
+      "post": {
+        "operationId": "shipmentStatusChanged",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Parcel-Event-Id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Parcel-Event-Signature",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentStatusEvent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Event accepted"
+          }
+        },
+        "summary": "Shipment status changed"
+      }
+    }
+  }
+}

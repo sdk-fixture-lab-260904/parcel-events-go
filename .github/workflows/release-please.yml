@@ -1,0 +1,119 @@
+# managed by Doctorine — edits will be overwritten
+name: Doctorine SDK Release
+on:
+  push:
+    branches:
+      - main
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
+          token: ${{ secrets.DOCTORINE_RELEASE_PAT || github.token }}
+  publish:
+    needs:
+      - release
+    if: needs.release.outputs.releases_created == 'true' && vars.DOCTORINE_PUBLISHING == 'true'
+    runs-on: ubuntu-latest
+    environment: parcel-events-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.release.outputs.tag_name }}
+      - name: Report publication hint to Doctorine
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |-
+          set -euo pipefail
+          started_ms=$(date +%s%3N)
+          encoded_audience=$(jq -nr --arg value "$DOCTORINE_RECEIPT_AUDIENCE" '$value|@uri')
+          oidc_json=$(curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 20 --max-filesize "$DOCTORINE_CALLBACK_MAX_BODY" \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")
+          oidc_token=$(jq -er '.value' <<<"$oidc_json")
+          body=$(jq -cn \
+            --arg conclusion "$DOCTORINE_JOB_STATUS" \
+            --arg registry "$DOCTORINE_REGISTRY" \
+            --arg packageName "$DOCTORINE_PACKAGE_NAME" \
+            --arg repoFullName "$GITHUB_REPOSITORY" \
+            --argjson runId "$GITHUB_RUN_ID" \
+            --argjson runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg headSha "$GITHUB_SHA" \
+            --arg workflowRef "$GITHUB_WORKFLOW_REF" \
+            --arg tagName "$DOCTORINE_RELEASE_TAG" \
+            --arg target "$DOCTORINE_TARGET" \
+            --arg version "$DOCTORINE_RELEASE_VERSION" \
+            '{repoFullName:$repoFullName,runId:$runId,runAttempt:$runAttempt,workflowRef:$workflowRef,headSha:$headSha,target:$target,registry:$registry,packageName:$packageName,version:$version,conclusion:(if $conclusion == "success" then "succeeded" else "failed" end)} + (if $tagName == "" then {} else {tagName:$tagName} end)')
+          body_bytes=$(printf %s "$body" | wc -c | tr -d ' ')
+          if [ "$body_bytes" -gt "$DOCTORINE_CALLBACK_MAX_REQUEST_BODY" ]; then exit 1; fi
+          attempt=1
+          while [ "$attempt" -le "$DOCTORINE_CALLBACK_MAX_ATTEMPTS" ]; do
+            now_ms=$(date +%s%3N)
+            remaining_ms=$((DOCTORINE_CALLBACK_MAX_ELAPSED_MS - now_ms + started_ms))
+            if [ "$remaining_ms" -le 0 ]; then exit 1; fi
+            remaining_seconds=$(((remaining_ms + 999) / 1000))
+            code=$(curl --silent --show-error --output /tmp/doctorine-receipt-response \
+              --dump-header /tmp/doctorine-receipt-headers \
+              --write-out '%{http_code}' --max-filesize "$DOCTORINE_CALLBACK_MAX_BODY" \
+              --connect-timeout 10 --max-time "$remaining_seconds" \
+              -H "Authorization: Bearer $oidc_token" -H 'Content-Type: application/json' \
+              -H "Idempotency-Key: ${GITHUB_REPOSITORY_ID}:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${DOCTORINE_TARGET}:${DOCTORINE_REGISTRY}" \
+              --data-binary "$body" "$DOCTORINE_RECEIPT_ENDPOINT") && transport_ok=true || transport_ok=false
+            if [ "$transport_ok" = true ] && [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then exit 0; fi
+            if [ "$attempt" -ge "$DOCTORINE_CALLBACK_MAX_ATTEMPTS" ]; then exit 1; fi
+            if [ "$transport_ok" = true ] && [ "$code" != 408 ] && [ "$code" != 429 ] && [ "$code" -lt 500 ]; then exit 1; fi
+            ceiling_ms=$((DOCTORINE_CALLBACK_INITIAL_DELAY_MS << (attempt - 1)))
+            if [ "$ceiling_ms" -gt "$DOCTORINE_CALLBACK_MAX_DELAY_MS" ]; then ceiling_ms=$DOCTORINE_CALLBACK_MAX_DELAY_MS; fi
+            delay_ms=$((RANDOM % (ceiling_ms + 1)))
+            retry_after=$(awk 'BEGIN { IGNORECASE=1 } /^Retry-After:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' /tmp/doctorine-receipt-headers)
+            if [[ "$retry_after" =~ ^[0-9]+$ ]]; then
+              retry_after_ms=$((retry_after * 1000))
+            elif [ -n "$retry_after" ]; then
+              retry_epoch=$(date -d "$retry_after" +%s 2>/dev/null || true)
+              now_epoch=$(date +%s)
+              if [[ "$retry_epoch" =~ ^[0-9]+$ ]] && [ "$retry_epoch" -gt "$now_epoch" ]; then retry_after_ms=$(((retry_epoch - now_epoch) * 1000)); else retry_after_ms=0; fi
+            else
+              retry_after_ms=0
+            fi
+            if [ "$retry_after_ms" -gt "$delay_ms" ]; then delay_ms=$retry_after_ms; fi
+            if [ "$delay_ms" -gt "$DOCTORINE_CALLBACK_MAX_DELAY_MS" ]; then delay_ms=$DOCTORINE_CALLBACK_MAX_DELAY_MS; fi
+            now_ms=$(date +%s%3N)
+            remaining_ms=$((DOCTORINE_CALLBACK_MAX_ELAPSED_MS - now_ms + started_ms))
+            if [ "$delay_ms" -gt "$remaining_ms" ]; then delay_ms=$remaining_ms; fi
+            if [ "$delay_ms" -le 0 ]; then exit 1; fi
+            sleep "$(awk "BEGIN { print $delay_ms / 1000 }")"
+            attempt=$((attempt + 1))
+          done
+        env:
+          DOCTORINE_RECEIPT_ENDPOINT: https://api.doctorine.xyz/v1/sdk/receipts
+          DOCTORINE_RECEIPT_AUDIENCE: https://api.doctorine.xyz/v1/sdk/receipts
+          DOCTORINE_TARGET: go
+          DOCTORINE_REGISTRY: github-tag
+          DOCTORINE_PACKAGE_NAME: github.com/sdk-fixture-lab-260904/parcel-events-go
+          DOCTORINE_JOB_STATUS: ${{ job.status }}
+          DOCTORINE_RELEASE_VERSION: ${{ needs.release.outputs.version }}
+          DOCTORINE_RELEASE_TAG: ${{ needs.release.outputs.tag_name }}
+          DOCTORINE_CALLBACK_MAX_ATTEMPTS: "3"
+          DOCTORINE_CALLBACK_MAX_ELAPSED_MS: "60000"
+          DOCTORINE_CALLBACK_INITIAL_DELAY_MS: "500"
+          DOCTORINE_CALLBACK_MAX_DELAY_MS: "8000"
+          DOCTORINE_CALLBACK_MAX_BODY: "1048576"
+          DOCTORINE_CALLBACK_MAX_REQUEST_BODY: "1048576"
