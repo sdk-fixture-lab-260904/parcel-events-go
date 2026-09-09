@@ -60,6 +60,7 @@ Read [recipes/http-client.md](recipes/http-client.md) before writing a client.
 - GET /v1/shipments/{shipment_id}/events · listShipmentEvents · reference/shipments.md#listshipmentevents
 - GET /v1/tracking/{tracking_number} · retrieveTrackingTimeline · reference/tracking.md#retrievetrackingtimeline
 - POST /v1/webhook-endpoints · createWebhookEndpoint · reference/webhook-endpoints.md#createwebhookendpoint `body required`
+- GET /v1/webhook-endpoints/{endpoint_id} · retrieveWebhookEndpoint · reference/webhook-endpoints.md#retrievewebhookendpoint
 - GET /v1/webhook-endpoints · listWebhookEndpoints · reference/webhook-endpoints.md#listwebhookendpoints
 - DELETE /v1/webhook-endpoints/{endpoint_id} · deleteWebhookEndpoint · reference/webhook-endpoints.md#deletewebhookendpoint
 - PATCH /v1/webhook-endpoints/{endpoint_id} · updateWebhookEndpoint · reference/webhook-endpoints.md#updatewebhookendpoint `body required`

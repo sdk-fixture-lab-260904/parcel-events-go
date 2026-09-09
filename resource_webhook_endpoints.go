@@ -38,6 +38,28 @@ func (s *WebhookEndpointsService) Create(ctx context.Context, body CreateWebhook
 	return &out, nil
 }
 
+// Get — Retrieve a webhook endpoint
+//
+// `GET /v1/webhook-endpoints/{endpoint_id}` (`retrieveWebhookEndpoint`)
+func (s *WebhookEndpointsService) Get(ctx context.Context, endpointID string, opts ...kernel.RequestOption) (*WebhookEndpoint, error) {
+	if err := s.core.kernel.ValidateValue(endpointID, sdkContracts["webhook_endpoints.get:path:endpoint_id"], opts...); err != nil {
+		return nil, err
+	}
+	options := make([]kernel.RequestOption, 0, len(opts)+2)
+	options = append(options, kernel.WithParameter("path", "endpoint_id", endpointID, kernel.ParameterSerialization{Style: "simple", Explode: false, AllowReserved: false, OmitNil: false}))
+	options = append(options, kernel.WithResponseContract(sdkContracts["webhook_endpoints.get:response"]))
+	options = append(options, opts...)
+	response, err := s.core.do(ctx, "GET", "/v1/webhook-endpoints/"+"{endpoint_id}", options...)
+	if err != nil {
+		return nil, err
+	}
+	out, err := decodeResponse[WebhookEndpoint](response.Data)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // List — List webhook endpoints
 //
 // `GET /v1/webhook-endpoints` (`listWebhookEndpoints`)

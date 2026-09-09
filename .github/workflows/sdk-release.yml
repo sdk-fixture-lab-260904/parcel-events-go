@@ -42,13 +42,24 @@ jobs:
         shell: bash
         run: |-
           set -euo pipefail
+          log() { printf 'doctorine-receipt %s\n' "$1" >&2; }
           started_ms=$(date +%s%3N)
           encoded_audience=$(jq -nr --arg value "$DOCTORINE_RECEIPT_AUDIENCE" '$value|@uri')
-          oidc_json=$(curl --fail --silent --show-error \
+          oidc_raw=$(curl --silent --show-error \
             --connect-timeout 10 --max-time 20 --max-filesize "$DOCTORINE_CALLBACK_MAX_BODY" \
+            --write-out '\n%{http_code}' \
             -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")
-          oidc_token=$(jq -er '.value' <<<"$oidc_json")
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}") && oidc_exit=0 || oidc_exit=$?
+          oidc_code=$(printf '%s' "$oidc_raw" | tail -n 1)
+          case "$oidc_code" in ''|*[!0-9]*) oidc_code=000 ;; esac
+          if [ "$oidc_exit" -ne 0 ] || [ "$oidc_code" -lt 200 ] || [ "$oidc_code" -ge 300 ]; then
+            log "class=oidc_request_failed transport=error curl_exit=$oidc_exit http_status=$oidc_code"
+            exit 1
+          fi
+          oidc_token=$(printf '%s' "$oidc_raw" | sed '$d' | jq -er '.value') || {
+            log "class=oidc_token_missing transport=ok curl_exit=0 http_status=$oidc_code"
+            exit 1
+          }
           body=$(jq -cn \
             --arg conclusion "$DOCTORINE_JOB_STATUS" \
             --arg registry "$DOCTORINE_REGISTRY" \
@@ -63,12 +74,18 @@ jobs:
             --arg version "$DOCTORINE_RELEASE_VERSION" \
             '{repoFullName:$repoFullName,runId:$runId,runAttempt:$runAttempt,workflowRef:$workflowRef,headSha:$headSha,target:$target,registry:$registry,packageName:$packageName,version:$version,conclusion:(if $conclusion == "success" then "succeeded" else "failed" end)} + (if $tagName == "" then {} else {tagName:$tagName} end)')
           body_bytes=$(printf %s "$body" | wc -c | tr -d ' ')
-          if [ "$body_bytes" -gt "$DOCTORINE_CALLBACK_MAX_REQUEST_BODY" ]; then exit 1; fi
+          if [ "$body_bytes" -gt "$DOCTORINE_CALLBACK_MAX_REQUEST_BODY" ]; then
+            log "class=request_body_too_large transport=none curl_exit=none http_status=none"
+            exit 1
+          fi
           attempt=1
           while [ "$attempt" -le "$DOCTORINE_CALLBACK_MAX_ATTEMPTS" ]; do
             now_ms=$(date +%s%3N)
             remaining_ms=$((DOCTORINE_CALLBACK_MAX_ELAPSED_MS - now_ms + started_ms))
-            if [ "$remaining_ms" -le 0 ]; then exit 1; fi
+            if [ "$remaining_ms" -le 0 ]; then
+              log "class=budget_exhausted transport=none curl_exit=none http_status=none attempt=$attempt"
+              exit 1
+            fi
             remaining_seconds=$(((remaining_ms + 999) / 1000))
             code=$(curl --silent --show-error --output /tmp/doctorine-receipt-response \
               --dump-header /tmp/doctorine-receipt-headers \
@@ -76,10 +93,22 @@ jobs:
               --connect-timeout 10 --max-time "$remaining_seconds" \
               -H "Authorization: Bearer $oidc_token" -H 'Content-Type: application/json' \
               -H "Idempotency-Key: ${GITHUB_REPOSITORY_ID}:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${DOCTORINE_TARGET}:${DOCTORINE_REGISTRY}" \
-              --data-binary "$body" "$DOCTORINE_RECEIPT_ENDPOINT") && transport_ok=true || transport_ok=false
-            if [ "$transport_ok" = true ] && [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then exit 0; fi
-            if [ "$attempt" -ge "$DOCTORINE_CALLBACK_MAX_ATTEMPTS" ]; then exit 1; fi
-            if [ "$transport_ok" = true ] && [ "$code" != 408 ] && [ "$code" != 429 ] && [ "$code" -lt 500 ]; then exit 1; fi
+              --data-binary "$body" "$DOCTORINE_RECEIPT_ENDPOINT") && curl_exit=0 || curl_exit=$?
+            case "$code" in ''|*[!0-9]*) code=000 ;; esac
+            if [ "$curl_exit" -eq 0 ]; then transport=ok; else transport=error; fi
+            if [ "$transport" = ok ] && [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+              log "class=delivered transport=ok curl_exit=0 http_status=$code attempt=$attempt"
+              exit 0
+            fi
+            log "class=attempt_failed transport=$transport curl_exit=$curl_exit http_status=$code attempt=$attempt"
+            if [ "$attempt" -ge "$DOCTORINE_CALLBACK_MAX_ATTEMPTS" ]; then
+              log "class=attempts_exhausted transport=$transport curl_exit=$curl_exit http_status=$code attempt=$attempt"
+              exit 1
+            fi
+            if [ "$transport" = ok ] && [ "$code" != 408 ] && [ "$code" != 429 ] && [ "$code" -lt 500 ]; then
+              log "class=http_not_retryable transport=ok curl_exit=0 http_status=$code attempt=$attempt"
+              exit 1
+            fi
             ceiling_ms=$((DOCTORINE_CALLBACK_INITIAL_DELAY_MS << (attempt - 1)))
             if [ "$ceiling_ms" -gt "$DOCTORINE_CALLBACK_MAX_DELAY_MS" ]; then ceiling_ms=$DOCTORINE_CALLBACK_MAX_DELAY_MS; fi
             delay_ms=$((RANDOM % (ceiling_ms + 1)))
@@ -98,10 +127,15 @@ jobs:
             now_ms=$(date +%s%3N)
             remaining_ms=$((DOCTORINE_CALLBACK_MAX_ELAPSED_MS - now_ms + started_ms))
             if [ "$delay_ms" -gt "$remaining_ms" ]; then delay_ms=$remaining_ms; fi
-            if [ "$delay_ms" -le 0 ]; then exit 1; fi
+            if [ "$delay_ms" -le 0 ]; then
+              log "class=budget_exhausted transport=$transport curl_exit=$curl_exit http_status=$code attempt=$attempt"
+              exit 1
+            fi
             sleep "$(awk "BEGIN { print $delay_ms / 1000 }")"
             attempt=$((attempt + 1))
           done
+          log "class=attempts_exhausted transport=none curl_exit=none http_status=none attempt=$attempt"
+          exit 1
         env:
           DOCTORINE_RECEIPT_ENDPOINT: https://api.doctorine.xyz/v1/sdk/receipts
           DOCTORINE_RECEIPT_AUDIENCE: https://api.doctorine.xyz/v1/sdk/receipts
