@@ -43,6 +43,7 @@ jobs:
         run: |-
           set -euo pipefail
           log() { printf 'doctorine-receipt %s\n' "$1" >&2; }
+          problem_class() { jq -r '.type' /tmp/doctorine-receipt-response 2>/dev/null | tail -n 1 | sed 's#^.*/##' | tr -cd 'a-z0-9-' | cut -c1-64; }
           started_ms=$(date +%s%3N)
           encoded_audience=$(jq -nr --arg value "$DOCTORINE_RECEIPT_AUDIENCE" '$value|@uri')
           oidc_raw=$(curl --silent --show-error \
@@ -100,13 +101,15 @@ jobs:
               log "class=delivered transport=ok curl_exit=0 http_status=$code attempt=$attempt"
               exit 0
             fi
-            log "class=attempt_failed transport=$transport curl_exit=$curl_exit http_status=$code attempt=$attempt"
+            error_class=$(problem_class) || error_class=
+            if [ -z "$error_class" ]; then error_class=none; fi
+            log "class=attempt_failed transport=$transport curl_exit=$curl_exit http_status=$code attempt=$attempt error=$error_class"
             if [ "$attempt" -ge "$DOCTORINE_CALLBACK_MAX_ATTEMPTS" ]; then
-              log "class=attempts_exhausted transport=$transport curl_exit=$curl_exit http_status=$code attempt=$attempt"
+              log "class=attempts_exhausted transport=$transport curl_exit=$curl_exit http_status=$code attempt=$attempt error=$error_class"
               exit 1
             fi
             if [ "$transport" = ok ] && [ "$code" != 408 ] && [ "$code" != 429 ] && [ "$code" -lt 500 ]; then
-              log "class=http_not_retryable transport=ok curl_exit=0 http_status=$code attempt=$attempt"
+              log "class=http_not_retryable transport=ok curl_exit=0 http_status=$code attempt=$attempt error=$error_class"
               exit 1
             fi
             ceiling_ms=$((DOCTORINE_CALLBACK_INITIAL_DELAY_MS << (attempt - 1)))
@@ -140,7 +143,7 @@ jobs:
           DOCTORINE_RECEIPT_ENDPOINT: https://api.doctorine.xyz/v1/sdk/receipts
           DOCTORINE_RECEIPT_AUDIENCE: https://api.doctorine.xyz/v1/sdk/receipts
           DOCTORINE_TARGET: go
-          DOCTORINE_REGISTRY: github-tag
+          DOCTORINE_REGISTRY: github
           DOCTORINE_PACKAGE_NAME: github.com/sdk-fixture-lab-260904/parcel-events-go
           DOCTORINE_JOB_STATUS: ${{ job.status }}
           DOCTORINE_RELEASE_VERSION: ${{ needs.release.outputs.version }}
