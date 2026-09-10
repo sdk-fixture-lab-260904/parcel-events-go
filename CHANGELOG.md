@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.2](https://github.com/sdk-fixture-lab-260904/parcel-events-go/compare/v1.3.1...v1.3.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **go:** regenerate github.com/sdk-fixture-lab-260904/parcel-events-go@1.3.2 (1d8e89feab3e) ([f4ca36c](https://github.com/sdk-fixture-lab-260904/parcel-events-go/commit/f4ca36cb803b92537702288c04549bcb20dc293e))
+* **go:** regenerate github.com/sdk-fixture-lab-260904/parcel-events-go@1.3.2 (1d8e89feab3e) ([ba717e4](https://github.com/sdk-fixture-lab-260904/parcel-events-go/commit/ba717e4a32f0f7a1dc6993865154ddb4c61e8b27))
+
 ## [1.3.1](https://github.com/sdk-fixture-lab-260904/parcel-events-go/compare/v1.3.0...v1.3.1) (2026-09-10)
 
 
