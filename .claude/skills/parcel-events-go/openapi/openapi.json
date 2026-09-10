@@ -1126,7 +1126,7 @@
     },
     "summary": "Synthetic parcel orchestration and tracking API",
     "title": "Parcel Events Sandbox API",
-    "version": "2026-09-09"
+    "version": "2026-09-10.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -1189,7 +1189,7 @@
                 }
               }
             },
-            "description": "Label metadata"
+            "description": "Label metadata and download URL"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -1669,7 +1669,7 @@
         "operationId": "deleteWebhookEndpoint",
         "responses": {
           "204": {
-            "description": "Endpoint deleted"
+            "description": "Webhook endpoint deleted"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -1691,7 +1691,7 @@
                 }
               }
             },
-            "description": "Endpoint details"
+            "description": "Webhook endpoint details"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -1728,7 +1728,7 @@
                 }
               }
             },
-            "description": "Updated endpoint"
+            "description": "Updated webhook endpoint"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
