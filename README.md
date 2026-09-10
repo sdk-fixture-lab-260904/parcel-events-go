@@ -83,4 +83,4 @@ client := parcelevents.NewClient(parcelevents.WithRetryPolicy(policy), parceleve
 
 ## Provenance
 
-Reproducible build — see `.doctorine-sdk.json`. `sdkSha 9330973fdd1423086564cd9914ce4ccfeb332c87286234c887120f22082ca7d4` · `configSha 3b30b7bffa895fb980dad02715f00f4e9bfa44b0a1609697a9abc1366c009a3d` · `bundleSha ee4e0c67f413a3bbf6c37174648831489b9449db1af378e2b81e66e833d86f55`.
+Reproducible build — see `.doctorine-sdk.json`. `sdkSha 1d8e89feab3ea431821b19e095e41a14b19b582478990b9dd9fd717e03443c5b` · `configSha 3b30b7bffa895fb980dad02715f00f4e9bfa44b0a1609697a9abc1366c009a3d` · `bundleSha ee4e0c67f413a3bbf6c37174648831489b9449db1af378e2b81e66e833d86f55`.
